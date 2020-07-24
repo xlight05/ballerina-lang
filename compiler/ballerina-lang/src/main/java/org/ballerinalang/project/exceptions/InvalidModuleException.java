@@ -15,8 +15,12 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+package org.ballerinalang.project.exceptions;
 
-package org.ballerinalang.newproject;
-
-public interface Toml {
+/**
+ * Invalid module is provided as input.
+ *
+ * @since 2.0.0
+ */
+public class InvalidModuleException extends Exception {
 }

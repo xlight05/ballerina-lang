@@ -16,19 +16,7 @@
  *  under the License.
  */
 
-package org.ballerinalang.newproject;
+package org.ballerinalang.project;
 
-import io.ballerinalang.compiler.syntax.tree.Node;
-import io.ballerinalang.compiler.syntax.tree.SyntaxTree;
-
-/**
- * Defines ballerina module.
- */
-public interface Module {
-
-    void compile();
-
-    SyntaxTree getSyntaxTree();
-
-    void getSemanticModel(Node node);
+public interface LockManager {
 }

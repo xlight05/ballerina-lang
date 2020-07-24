@@ -15,12 +15,26 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
-package org.ballerinalang.project;
+package org.ballerinalang.project.exceptions;
 
 /**
  * Invalid module is provided as input.
  *
  * @since 2.0.0
  */
-public class InvalidModuleException extends Exception {
+public class InvalidOptionsException extends Exception {
+    String error;
+    String usage;
+
+    public InvalidOptionsException(String error, String usage) {
+        super(error);
+        this.error = error;
+        this.usage = usage;
+    }
+
+    public InvalidOptionsException(String error, String usage, Exception e) {
+        super(error, e);
+        this.error = error;
+        this.usage = usage;
+    }
 }

@@ -18,6 +18,8 @@
 package org.ballerinalang.project;
 
 import org.ballerinalang.model.elements.PackageID;
+import org.ballerinalang.project.exceptions.InvalidModuleException;
+import org.ballerinalang.toml.model.LockFile;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
 
 import java.nio.file.Path;
@@ -37,7 +39,7 @@ public interface Project {
      * @param moduleId Module Id
      * @return the status whether the module exists in the project.
      */
-    public boolean isModuleExists(PackageID moduleId);
+    boolean isModuleExists(PackageID moduleId);
 
     /**
      * Returns the .balo path.
@@ -46,5 +48,23 @@ public interface Project {
      * @return Path to the .balo.
      * @throws InvalidModuleException when project does not contains the module.
      */
-    public Path getBaloPath(PackageID moduleId) throws InvalidModuleException;
+    Path getBaloPath(PackageID moduleId) throws InvalidModuleException;
+
+    boolean isModuleExists(ModuleId moduleId);
+
+    Module getModule(ModuleId moduleId);
+
+    Toml getToml();
+
+    boolean hasLockFile();
+
+    LockFile getLockFile();
+
+    JarResolver getJarResolver();
+
+    void setOptions();
+
+    Path getSourceRootPath();
+
+    Path getSourcePath();
 }

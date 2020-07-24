@@ -15,8 +15,15 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+package org.ballerinalang.project.exceptions;
 
-package org.ballerinalang.newproject;
-
-public interface JarResolver {
+/**
+ * Invalid ballerina project is provided as input.
+ *
+ * @since 2.0.0
+ */
+public class BalFileNotFoundException extends Exception {
+    public BalFileNotFoundException(String error) {
+        super(error);
+    }
 }

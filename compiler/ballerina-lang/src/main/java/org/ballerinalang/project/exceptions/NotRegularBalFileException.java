@@ -15,8 +15,15 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+package org.ballerinalang.project.exceptions;
 
-package org.ballerinalang.newproject;
-
-public interface LockManager {
+/**
+ * Invalid ballerina project is provided as input.
+ *
+ * @since 2.0.0
+ */
+public class NotRegularBalFileException extends Exception {
+    public NotRegularBalFileException(String error) {
+        super(error);
+    }
 }

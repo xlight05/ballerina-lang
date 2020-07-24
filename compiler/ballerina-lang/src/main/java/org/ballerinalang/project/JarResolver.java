@@ -16,7 +16,7 @@
  *  under the License.
  */
 
-package org.ballerinalang.newproject;
+package org.ballerinalang.project;
 
-public interface ModuleResolver {
+public interface JarResolver {
 }

@@ -20,9 +20,14 @@ package org.wso2.ballerinalang.compiler;
 import org.ballerinalang.compiler.BLangCompilerException;
 import org.ballerinalang.compiler.CompilerOptionName;
 import org.ballerinalang.model.elements.PackageID;
-import org.ballerinalang.project.InvalidModuleException;
+import org.ballerinalang.project.JarResolver;
+import org.ballerinalang.project.Module;
+import org.ballerinalang.project.ModuleId;
+import org.ballerinalang.project.Toml;
+import org.ballerinalang.project.exceptions.InvalidModuleException;
 import org.ballerinalang.project.Project;
 import org.ballerinalang.toml.exceptions.TomlException;
+import org.ballerinalang.toml.model.LockFile;
 import org.ballerinalang.toml.model.Manifest;
 import org.ballerinalang.toml.parser.ManifestProcessor;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
@@ -260,5 +265,50 @@ public class SourceDirectoryManager implements Project {
                 .resolve(ProjectDirConstants.TARGET_DIR_NAME)
                 .resolve(ProjectDirConstants.TARGET_BALO_DIRECTORY)
                 .resolve(baloFileName);
+    }
+
+    @Override
+    public boolean isModuleExists(ModuleId moduleId) {
+        return false;
+    }
+
+    @Override
+    public Module getModule(ModuleId moduleId) {
+        return null;
+    }
+
+    @Override
+    public Toml getToml() {
+        return null;
+    }
+
+    @Override
+    public boolean hasLockFile() {
+        return false;
+    }
+
+    @Override
+    public LockFile getLockFile() {
+        return null;
+    }
+
+    @Override
+    public JarResolver getJarResolver() {
+        return null;
+    }
+
+    @Override
+    public void setOptions() {
+
+    }
+
+    @Override
+    public Path getSourceRootPath() {
+        return null;
+    }
+
+    @Override
+    public Path getSourcePath() {
+        return null;
     }
 }
