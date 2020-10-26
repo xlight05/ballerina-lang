@@ -70,7 +70,7 @@ public class TomlParserErrorHandler extends AbstractParserErrorHandler {
     private static final ParserRuleContext[] VALUE = {ParserRuleContext.STRING_START,
             ParserRuleContext.SIGN_TOKEN, ParserRuleContext.NUMERICAL_LITERAL,
             ParserRuleContext.BOOLEAN_LITERAL,
-//            ParserRuleContext.ARRAY_VALUE_LIST
+            ParserRuleContext.ARRAY_VALUE_LIST_START
     };
 
     private static final ParserRuleContext[] ARRAY_VALUE_START = VALUE;
@@ -345,9 +345,10 @@ public class TomlParserErrorHandler extends AbstractParserErrorHandler {
             case ASSIGN_OP:
                 return SyntaxKind.EQUAL_TOKEN;
             case IDENTIFIER_LITERAL:
+            case STRING_CONTENT:
                 return SyntaxKind.IDENTIFIER_LITERAL;
-            case VALUE:
-                return SyntaxKind.FALSE_KEYWORD; //Better handling
+//            case VALUE:
+//                return SyntaxKind.FALSE_KEYWORD; //Better handling
             case EOF:
                 return SyntaxKind.EOF_TOKEN;
             case COMMA:
@@ -355,8 +356,6 @@ public class TomlParserErrorHandler extends AbstractParserErrorHandler {
             case STRING_START:
             case STRING_END:
                 return SyntaxKind.DOUBLE_QUOTE_TOKEN;
-            case STRING_CONTENT:
-                return SyntaxKind.IDENTIFIER_LITERAL;
             case ARRAY_VALUE_LIST_START:
             case TABLE_START:
                 return SyntaxKind.OPEN_BRACKET_TOKEN;

@@ -27,5 +27,6 @@ package io.ballerina.toml.internal.parser;
 public enum ParserMode {
     DEFAULT,
     STRING,
+    MULTILINE_STRING,
     LITERAL_STRING,
 }
