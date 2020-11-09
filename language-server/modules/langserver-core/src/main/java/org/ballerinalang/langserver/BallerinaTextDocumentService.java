@@ -21,8 +21,12 @@ import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.SyntaxTree;
 import io.ballerina.compiler.syntax.tree.Token;
 import io.ballerina.projects.Document;
+import io.ballerina.toml.api.Toml;
+import io.ballerina.toml.validator.schema.Schema;
+import io.ballerina.tools.diagnostics.Diagnostic;
 import io.ballerina.tools.text.LinePosition;
 import io.ballerina.tools.text.LineRange;
+import org.apache.commons.io.IOUtils;
 import org.ballerinalang.formatter.core.Formatter;
 import org.ballerinalang.formatter.core.FormatterException;
 import org.ballerinalang.langserver.codelenses.CodeLensUtil;
@@ -34,6 +38,7 @@ import org.ballerinalang.langserver.commons.DocumentServiceContext;
 import org.ballerinalang.langserver.commons.HoverContext;
 import org.ballerinalang.langserver.commons.SignatureContext;
 import org.ballerinalang.langserver.commons.capability.LSClientCapabilities;
+import org.ballerinalang.langserver.commons.client.ExtendedLanguageClient;
 import org.ballerinalang.langserver.commons.workspace.WorkspaceManager;
 import org.ballerinalang.langserver.compiler.LSClientLogger;
 import org.ballerinalang.langserver.completions.exceptions.CompletionContextNotSupportedException;
@@ -51,6 +56,7 @@ import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionList;
 import org.eclipse.lsp4j.CompletionParams;
+import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
 import org.eclipse.lsp4j.DidOpenTextDocumentParams;
@@ -63,6 +69,7 @@ import org.eclipse.lsp4j.Hover;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.LocationLink;
 import org.eclipse.lsp4j.Position;
+import org.eclipse.lsp4j.PublishDiagnosticsParams;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.ReferenceParams;
 import org.eclipse.lsp4j.SignatureHelp;
@@ -74,10 +81,19 @@ import org.eclipse.lsp4j.TextEdit;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.services.TextDocumentService;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringWriter;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.MissingResourceException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -92,12 +108,12 @@ import static org.ballerinalang.langserver.compiler.LSCompilerUtil.getUntitledFi
  * Text document service implementation for ballerina.
  */
 class BallerinaTextDocumentService implements TextDocumentService {
+
     // indicates the frequency to send diagnostics to server upon document did change
     private final BallerinaLanguageServer languageServer;
     private final DiagnosticsHelper diagnosticsHelper;
     private LSClientCapabilities clientCapabilities;
     private final WorkspaceManager workspaceManager;
-
 
     BallerinaTextDocumentService(LSGlobalContext globalContext, WorkspaceManager workspaceManager) {
         this.workspaceManager = workspaceManager;
@@ -151,7 +167,7 @@ class BallerinaTextDocumentService implements TextDocumentService {
                 logError(msg, e, position.getTextDocument(), position.getPosition());
                 hover = HoverUtil.getDefaultHoverObject();
             }
-            
+
             return hover;
         });
     }
@@ -457,10 +473,14 @@ class BallerinaTextDocumentService implements TextDocumentService {
         try {
             DocumentServiceContext context = ContextBuilder.buildBaseContext(fileUri, this.workspaceManager,
                     LSContextOperation.TXT_DID_OPEN);
-            this.workspaceManager.didOpen(context.filePath(), params);
-            LSClientLogger.logTrace("Operation '" + LSContextOperation.TXT_DID_OPEN.getName() +
-                    "' {fileUri: '" + fileUri + "'} opened}");
-            diagnosticsHelper.compileAndSendDiagnostics(this.languageServer.getClient(), context);
+            if (fileUri.endsWith("Kubernetes.toml")) {
+                getDiagsOfK8sToml(fileUri);
+            } else {
+                this.workspaceManager.didOpen(context.filePath(), params);
+                LSClientLogger.logTrace("Operation '" + LSContextOperation.TXT_DID_OPEN.getName() +
+                        "' {fileUri: '" + fileUri + "'} opened}");
+                diagnosticsHelper.compileAndSendDiagnostics(this.languageServer.getClient(), context);
+            }
         } catch (Throwable e) {
             String msg = "Operation 'text/didOpen' failed!";
             TextDocumentIdentifier identifier = new TextDocumentIdentifier(params.getTextDocument().getUri());
@@ -476,19 +496,82 @@ class BallerinaTextDocumentService implements TextDocumentService {
             DocumentServiceContext context = ContextBuilder.buildBaseContext(fileUri,
                     this.workspaceManager,
                     LSContextOperation.TXT_DID_CHANGE);
-            // Note: If the source is a cached stdlib source or path does not exist, then return early and ignore
-            if (CommonUtil.isCachedExternalSource(fileUri)) {
-                // TODO: Check whether still we need this check
-                return;
+            if (fileUri.endsWith("Kubernetes.toml")) {
+                getDiagsOfK8sToml(fileUri);
+            } else {
+                // Note: If the source is a cached stdlib source or path does not exist, then return early and ignore
+                if (CommonUtil.isCachedExternalSource(fileUri)) {
+                    // TODO: Check whether still we need this check
+                    return;
+                }
+                workspaceManager.didChange(context.filePath(), params);
+                LSClientLogger.logTrace("Operation '" + LSContextOperation.TXT_DID_CHANGE.getName() +
+                        "' {fileUri: '" + fileUri + "'} updated}");
+                diagnosticsHelper.compileAndSendDiagnostics(this.languageServer.getClient(), context);
             }
-            workspaceManager.didChange(context.filePath(), params);
-            LSClientLogger.logTrace("Operation '" + LSContextOperation.TXT_DID_CHANGE.getName() +
-                    "' {fileUri: '" + fileUri + "'} updated}");
-            diagnosticsHelper.compileAndSendDiagnostics(this.languageServer.getClient(), context);
         } catch (Throwable e) {
             String msg = "Operation 'text/didChange' failed!";
             logError(msg, e, params.getTextDocument(), (Position) null);
         }
+    }
+
+    private void getDiagsOfK8sToml(String fileUri) throws URISyntaxException, IOException {
+        Path k8sPath = Paths.get(new URL(fileUri).toURI());
+        Toml toml = Toml.read(k8sPath, Schema.from(getValidationSchema()));
+        List<Diagnostic> diagnostics = toml.diagnostics();
+        ExtendedLanguageClient client = this.languageServer.getClient();
+        client.publishDiagnostics(new PublishDiagnosticsParams(fileUri, transformDiagnostics(diagnostics)));
+    }
+
+    private String getValidationSchema() {
+        try {
+            InputStream inputStream =
+                    getClass().getClassLoader().getResourceAsStream("c2c-schema.json");
+            if (inputStream == null) {
+                throw new MissingResourceException("Schema Not found", "c2c-schema.json", "");
+            }
+            StringWriter writer = new StringWriter();
+            IOUtils.copy(inputStream, writer, StandardCharsets.UTF_8.name());
+            return writer.toString();
+        } catch (IOException e) {
+            throw new MissingResourceException("Schema Not found", "c2c-schema.json", "");
+        }
+    }
+
+    private List<org.eclipse.lsp4j.Diagnostic> transformDiagnostics(Collection<Diagnostic> diags) {
+        List<org.eclipse.lsp4j.Diagnostic> clientDiagnostics = new ArrayList<>();
+        for (io.ballerina.tools.diagnostics.Diagnostic diag : diags) {
+            LineRange lineRange = diag.location().lineRange();
+
+            int startLine = lineRange.startLine().line();
+            int startChar = lineRange.startLine().offset();
+            int endLine = lineRange.endLine().line();
+            int endChar = lineRange.endLine().offset();
+
+            endLine = (endLine <= 0) ? startLine : endLine;
+            endChar = (endChar <= 0) ? startChar + 1 : endChar;
+
+            Range range = new Range(new Position(startLine, startChar), new Position(endLine, endChar));
+            org.eclipse.lsp4j.Diagnostic diagnostic = new org.eclipse.lsp4j.Diagnostic(range, diag.message());
+
+            switch (diag.diagnosticInfo().severity()) {
+                case ERROR:
+                    diagnostic.setSeverity(DiagnosticSeverity.Error);
+                    break;
+                case WARNING:
+                    diagnostic.setSeverity(DiagnosticSeverity.Warning);
+                    break;
+                case HINT:
+                    diagnostic.setSeverity(DiagnosticSeverity.Hint);
+                    break;
+                case INFO:
+                    diagnostic.setSeverity(DiagnosticSeverity.Information);
+                    break;
+            }
+
+            clientDiagnostics.add(diagnostic);
+        }
+        return clientDiagnostics;
     }
 
     @Override
