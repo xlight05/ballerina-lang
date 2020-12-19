@@ -22,6 +22,7 @@ import io.ballerina.toml.internal.parser.TomlParser;
 import io.ballerina.toml.internal.syntax.SyntaxUtils;
 import io.ballerina.tools.diagnostics.Diagnostic;
 import io.ballerina.tools.text.TextDocument;
+import io.ballerina.tools.text.TextDocumentChange;
 import io.ballerina.tools.text.TextDocuments;
 
 /**

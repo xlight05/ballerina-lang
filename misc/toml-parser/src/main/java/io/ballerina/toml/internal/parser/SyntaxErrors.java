@@ -17,7 +17,6 @@
  */
 package io.ballerina.toml.internal.parser;
 
-import io.ballerina.toml.internal.diagnostics.DiagnosticCode;
 import io.ballerina.toml.internal.diagnostics.DiagnosticErrorCode;
 import io.ballerina.toml.internal.parser.tree.STNode;
 import io.ballerina.toml.internal.parser.tree.STNodeDiagnostic;
@@ -27,6 +26,7 @@ import io.ballerina.toml.internal.parser.tree.STToken;
 import io.ballerina.toml.internal.syntax.NodeListUtils;
 import io.ballerina.toml.internal.syntax.SyntaxUtils;
 import io.ballerina.toml.syntax.tree.SyntaxKind;
+import io.ballerina.tools.diagnostics.DiagnosticCode;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -75,10 +75,6 @@ public class SyntaxErrors {
 
     public static STToken createMissingToken(SyntaxKind expectedKind) {
         return STNodeFactory.createMissingToken(expectedKind);
-    }
-    // TODO check for possibility of removing this method
-    public static STToken createMissingTokenWithDiagnostics(SyntaxKind expectedKind) {
-        return createMissingTokenWithDiagnostics(expectedKind, getErrorCode(expectedKind));
     }
 
     public static STToken createMissingTokenWithDiagnostics(SyntaxKind expectedKind, ParserRuleContext currentCtx) {

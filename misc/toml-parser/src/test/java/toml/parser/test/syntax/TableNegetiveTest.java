@@ -44,7 +44,7 @@ public class TableNegetiveTest extends AbstractTomlParserTest {
         super.testFile("wrong-closing-brace-negative.toml", "wrong-closing-brace-negative.json");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testEmptyTableOpen() {
         super.testFile("empty-table-open-negative.toml", "empty-table-open-negative.json");
     }
