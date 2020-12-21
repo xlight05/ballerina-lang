@@ -2,7 +2,13 @@ package org.ballerinalang.langserver.completions.toml;
 
 import java.util.List;
 
+/**
+ * Represents Array of tables for Toml Snippet builder.
+ *
+ * @since 2.0.0
+ */
 public class TableArray implements TomlNode {
+
     private String name;
     private List<TomlNode> nodes;
     private static final int SPACING = 4;

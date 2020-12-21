@@ -88,43 +88,6 @@ public class SyntaxErrors {
         return STNodeFactory.createMissingToken(expectedKind, diagnosticList);
     }
 
-    // TODO check for possibility of removing this method
-    private static DiagnosticCode getErrorCode(SyntaxKind expectedKind) {
-        switch (expectedKind) {
-
-            // Separators
-            case OPEN_BRACKET_TOKEN:
-                return DiagnosticErrorCode.ERROR_MISSING_OPEN_BRACKET_TOKEN;
-            case CLOSE_BRACKET_TOKEN:
-                return DiagnosticErrorCode.ERROR_MISSING_CLOSE_BRACKET_TOKEN;
-            case DOT_TOKEN:
-                return DiagnosticErrorCode.ERROR_MISSING_DOT_TOKEN;
-            case COMMA_TOKEN:
-                return DiagnosticErrorCode.ERROR_MISSING_COMMA_TOKEN;
-            case HASH_TOKEN:
-                return DiagnosticErrorCode.ERROR_MISSING_HASH_TOKEN;
-            case DOUBLE_QUOTE_TOKEN:
-                return DiagnosticErrorCode.ERROR_MISSING_DOUBLE_QUOTE_TOKEN;
-            case SINGLE_QUOTE_TOKEN:
-                return DiagnosticErrorCode.ERROR_MISSING_SINGLE_QUOTE_TOKEN;
-
-            // Operators
-            case EQUAL_TOKEN:
-                return DiagnosticErrorCode.ERROR_MISSING_EQUAL_TOKEN;
-            case PLUS_TOKEN:
-                return DiagnosticErrorCode.ERROR_MISSING_PLUS_TOKEN;
-            case MINUS_TOKEN:
-                return DiagnosticErrorCode.ERROR_MISSING_MINUS_TOKEN;
-
-            case IDENTIFIER_LITERAL:
-                return DiagnosticErrorCode.ERROR_MISSING_IDENTIFIER;
-            case STRING_LITERAL:
-                return DiagnosticErrorCode.ERROR_MISSING_STRING_LITERAL;
-            default:
-                return DiagnosticErrorCode.ERROR_SYNTAX_ERROR;
-        }
-    }
-
     private static DiagnosticCode getErrorCode(ParserRuleContext currentCtx) {
         switch (currentCtx) {
             case STRING_CONTENT:

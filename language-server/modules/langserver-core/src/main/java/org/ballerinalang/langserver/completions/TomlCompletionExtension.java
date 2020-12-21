@@ -20,13 +20,11 @@ package org.ballerinalang.langserver.completions;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.commons.CompletionContext;
 import org.ballerinalang.langserver.commons.CompletionExtension;
-import org.ballerinalang.langserver.completions.toml.TomlSnippetBuilder;
-import org.ballerinalang.langserver.completions.util.CompletionUtil;
 import org.ballerinalang.langserver.completions.util.TomlCompletionUtil;
+import org.ballerinalang.langserver.contexts.TomlCompletionContextImpl;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionParams;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -36,6 +34,7 @@ import java.util.List;
  */
 @JavaSPIService("org.ballerinalang.langserver.commons.LanguageExtension")
 public class TomlCompletionExtension implements CompletionExtension {
+
     @Override
     public boolean validate(CompletionParams inputParams) {
         return inputParams.getTextDocument().getUri().endsWith("Kubernetes.toml");
@@ -44,9 +43,8 @@ public class TomlCompletionExtension implements CompletionExtension {
     @Override
     public List<CompletionItem> execute(CompletionParams inputParams, CompletionContext context)
             throws Throwable {
-        List<CompletionItem> completionItems = TomlCompletionUtil.getCompletionItems(context);
-//        List<CompletionItem> list = new ArrayList<>();
-//        list.add(TomlSnippetBuilder.getContainerImageSnippet());
+        TomlCompletionContextImpl tomlContext = new TomlCompletionContextImpl(context);
+        List<CompletionItem> completionItems = TomlCompletionUtil.getCompletionItems(tomlContext);
         return completionItems;
     }
 }

@@ -15,35 +15,33 @@
  */
 package org.ballerinalang.langserver.completions.util;
 
-import io.ballerina.compiler.syntax.tree.ModulePartNode;
-import io.ballerina.compiler.syntax.tree.Node;
-import io.ballerina.compiler.syntax.tree.NonTerminalNode;
-import io.ballerina.compiler.syntax.tree.Token;
-import io.ballerina.projects.Document;
 import io.ballerina.toml.syntax.tree.DocumentNode;
+import io.ballerina.toml.syntax.tree.KeyValueNode;
+import io.ballerina.toml.syntax.tree.Node;
+import io.ballerina.toml.syntax.tree.NonTerminalNode;
+import io.ballerina.toml.syntax.tree.SeparatedNodeList;
+import io.ballerina.toml.syntax.tree.SyntaxKind;
 import io.ballerina.toml.syntax.tree.SyntaxTree;
+import io.ballerina.toml.syntax.tree.TableNode;
+import io.ballerina.toml.syntax.tree.ValueNode;
 import io.ballerina.tools.text.LinePosition;
 import io.ballerina.tools.text.TextDocument;
 import io.ballerina.tools.text.TextDocuments;
 import io.ballerina.tools.text.TextRange;
-import org.ballerinalang.langserver.commons.CompletionContext;
-import org.ballerinalang.langserver.commons.DocumentServiceContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionException;
-import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
-import org.ballerinalang.langserver.commons.completion.spi.CompletionProvider;
-import org.ballerinalang.langserver.completions.ProviderFactory;
-import org.ballerinalang.langserver.util.TokensUtil;
+import org.ballerinalang.langserver.completions.TomlCompletionContext;
+import org.ballerinalang.langserver.completions.toml.TomlSnippetBuilder;
 import org.ballerinalang.langserver.util.references.TokenOrSymbolNotFoundException;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.Position;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Common utility methods for the completion operation.
@@ -56,15 +54,13 @@ public class TomlCompletionUtil {
      * @param ctx Completion context
      * @return {@link List}         List of resolved completion Items
      */
-    public static List<CompletionItem> getCompletionItems(CompletionContext ctx) throws LSCompletionException,
+    public static List<CompletionItem> getCompletionItems(TomlCompletionContext ctx) throws LSCompletionException,
             TokenOrSymbolNotFoundException {
         fillTokenInfoAtCursor(ctx);
         NonTerminalNode nodeAtCursor = ctx.getNodeAtCursor();
-        List<LSCompletionItem> items = route(ctx, nodeAtCursor);
+        List<CompletionItem> items = route(ctx, nodeAtCursor);
 
-        return items.stream()
-                .map(LSCompletionItem::getCompletionItem)
-                .collect(Collectors.toList());
+        return items;
     }
 
     /**
@@ -77,65 +73,93 @@ public class TomlCompletionUtil {
      * @param node node to evaluate
      * @return {@link Optional} provider which resolved
      */
-    public static List<LSCompletionItem> route(CompletionContext ctx, Node node)
-            throws LSCompletionException {
-        List<LSCompletionItem> completionItems = new ArrayList<>();
+    public static List<CompletionItem> route(TomlCompletionContext ctx, Node node) {
+        List<CompletionItem> completionItems = new ArrayList<>();
+        HashMap<String, CompletionItem> map = new HashMap<>();
         if (node == null) {
             return completionItems;
         }
-        Map<Class<?>, CompletionProvider<Node>> providers = ProviderFactory.instance().getProviders();
+
         Node reference = node;
-        CompletionProvider<Node> provider = null;
-
         while ((reference != null)) {
-            provider = providers.get(reference.getClass());
-            // Resolver chain check has been added to cover the use-case in the documentation of the method
-            if (provider != null && provider.onPreValidation(ctx, reference)
-                    && !ctx.getResolverChain().contains(reference)) {
-                ctx.addResolver(reference);
+            if (reference.kind() == SyntaxKind.TABLE) {
+                TableNode tableNode = (TableNode) reference;
+                switch (toDottedString(tableNode.identifier())) {
+                    //TODO dont suggest the things that are already there
+                    case "container.image":
+                        map.put("name", TomlSnippetBuilder.getContainerImageName());
+                        map.put("repository", TomlSnippetBuilder.getContainerImageRepository());
+                        map.put("tag", TomlSnippetBuilder.getContainerTag());
+                        map.put("base", TomlSnippetBuilder.getContainerImageBase());
+                        map.put("container.image.user", TomlSnippetBuilder.getContainerImageUserSnippet());
+                        break;
+                    case "cloud.deployment.probes.readiness":
+                        map.put("port", TomlSnippetBuilder.getProbePortSnippet());
+                        map.put("path", TomlSnippetBuilder.getProbePathSnippet());
+                        break;
+                    default:
+                        break;
+                }
+                for (KeyValueNode field : tableNode.fields()) {
+                    String key = toDottedString(field.identifier());
+                    map.remove(key);
+                }
                 break;
+            } else if (reference.kind() == SyntaxKind.TABLE_ARRAY) {
+                break;
+            } else {
+                reference = reference.parent();
             }
-            ctx.addResolver(reference);
-            reference = reference.parent();
         }
 
-        if (provider == null) {
-            return completionItems;
-        }
+        return new ArrayList<>(map.values());
+    }
 
-        return provider.getCompletions(ctx, reference);
+    private static String toDottedString(SeparatedNodeList<ValueNode> nodeList) {
+        String output = "";
+        for (ValueNode valueNode : nodeList) {
+            String valueString = valueNode.toString();
+            output = output + "." + valueString;
+        }
+        return output.substring(1);
     }
 
     /**
      * Find the token at cursor.
      */
-    public static void fillTokenInfoAtCursor(CompletionContext context) throws TokenOrSymbolNotFoundException {
-        context.setTokenAtCursor(findTokenAtPosition(context, context.getCursorPosition()));
-        Optional<Document> document = context.workspace().document(context.filePath());
-        if (document.isEmpty()) {
-            throw new RuntimeException("Could not find a valid document");
-        }
-        TextDocument textDocument = document.get().textDocument();
+    public static void fillTokenInfoAtCursor(TomlCompletionContext context) throws TokenOrSymbolNotFoundException {
+        try {
+            Path tomlFilePath = context.filePath();
+            if (tomlFilePath != null) {
+                TextDocument textDocument = TextDocuments.from(Files.readString(tomlFilePath));
+                Position position = context.getCursorPosition();
+                int txtPos =
+                        textDocument.textPositionFrom(LinePosition.from(position.getLine(), position.getCharacter()));
+                // TODO: Try to delegate the set option to the context
+                context.setCursorPositionInTree(txtPos);
+                TextRange range = TextRange.from(txtPos, 0);
+                Path filePath = tomlFilePath.getFileName();
+                if (filePath != null) {
+                    String path = filePath.toString();
+                    SyntaxTree st = SyntaxTree.from(textDocument, path);
+                    NonTerminalNode nonTerminalNode = ((DocumentNode) st.rootNode()).findNode(range);
+                    while (true) {
+                        /*
+                        ModulePartNode's parent is null
+                         */
+                        if (nonTerminalNode.parent() != null && !withinTextRange(txtPos, nonTerminalNode)) {
+                            nonTerminalNode = nonTerminalNode.parent();
+                            continue;
+                        }
+                        break;
+                    }
 
-        Position position = context.getCursorPosition();
-        int txtPos = textDocument.textPositionFrom(LinePosition.from(position.getLine(), position.getCharacter()));
-        // TODO: Try to delegate the set option to the context
-        context.setCursorPositionInTree(txtPos);
-        TextRange range = TextRange.from(txtPos, 0);
-        NonTerminalNode nonTerminalNode = ((ModulePartNode) document.get().syntaxTree().rootNode()).findNode(range);
-
-        while (true) {
-            /*
-            ModulePartNode's parent is null
-             */
-            if (nonTerminalNode.parent() != null && !withinTextRange(txtPos, nonTerminalNode)) {
-                nonTerminalNode = nonTerminalNode.parent();
-                continue;
+                    context.setNodeAtCursor(nonTerminalNode);
+                }
             }
-            break;
+        } catch (IOException e) {
+            throw new TokenOrSymbolNotFoundException("Couldn't find a valid document!");
         }
-
-        context.setNodeAtCursor(nonTerminalNode);
     }
 
     private static boolean withinTextRange(int position, NonTerminalNode node) {
@@ -144,36 +168,5 @@ public class TomlCompletionUtil {
         TextRange leadingMinutiaeRange = TextRange.from(rangeWithMinutiae.startOffset(),
                 textRange.startOffset() - rangeWithMinutiae.startOffset());
         return leadingMinutiaeRange.endOffset() <= position;
-    }
-
-    /**
-     * Find the token at position.
-     *
-     * @return Token at position
-     */
-    public static Token findTokenAtPosition(DocumentServiceContext context, Position position)
-            throws TokenOrSymbolNotFoundException {
-        Optional<Document> document = context.workspace().document(context.filePath());
-//        if (document.isEmpty()) {
-//            throw new TokenOrSymbolNotFoundException("Couldn't find a valid document!");
-//        }
-//        TextDocument textDocument = document.get().textDocument();
-        TextDocument textDocument = null;
-        try {
-            textDocument = TextDocuments.from(Files.readString(context.filePath()));
-            SyntaxTree st = SyntaxTree.from(textDocument, context.filePath().getFileName().toString());
-            int txtPos = textDocument.textPositionFrom(LinePosition.from(position.getLine(), position.getCharacter()));
-            io.ballerina.toml.syntax.tree.Token token = ((DocumentNode) st.rootNode()).findToken(txtPos,true);
-
-
-            Token tokenAtPosition = ((ModulePartNode) document.get().syntaxTree().rootNode()).findToken(txtPos, true);
-
-            if (tokenAtPosition == null) {
-                throw new TokenOrSymbolNotFoundException("Couldn't find a valid identifier token at position!");
-            }
-            return tokenAtPosition;
-        } catch (IOException e) {
-            throw new TokenOrSymbolNotFoundException("Couldn't find a valid document!");
-        }
     }
 }

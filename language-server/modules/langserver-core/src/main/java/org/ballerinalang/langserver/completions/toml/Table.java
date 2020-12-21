@@ -3,6 +3,11 @@ package org.ballerinalang.langserver.completions.toml;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Represents Toml Table for snippet builder.
+ *
+ * @since 2.0.0
+ */
 public class Table implements TomlNode {
     private String name;
     private List<TomlNode> nodes;

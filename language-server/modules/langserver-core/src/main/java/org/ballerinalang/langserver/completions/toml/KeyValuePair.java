@@ -1,5 +1,10 @@
 package org.ballerinalang.langserver.completions.toml;
 
+/**
+ * Represents a key value pair in snippet builder.
+ *
+ * @since 2.0.0
+ */
 public class KeyValuePair implements TomlNode {
 
     private String key;
@@ -16,6 +21,7 @@ public class KeyValuePair implements TomlNode {
 
     @Override
     public String prettyPrint() {
-        return key + "=" + type.getStartingSeparator() + "${" + id + ":" + defaultValue + "}" + type.getEndingSeparator() + "";
+        return key + "=" + type.getStartingSeparator() + "${" + id + ":" + defaultValue + "}" +
+                type.getEndingSeparator() + "";
     }
 }
